@@ -1,14 +1,19 @@
-local HttpService = game:GetService("HttpService")
+-- 1. LOADING GUARD: Wait until PlayerGui and Character are fully ready
+if not game:IsLoaded() then game.Loaded:Wait() end
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+repeat task.wait(0.5) until player:FindFirstChild("PlayerGui")
+local playerGui = player.PlayerGui
+
+local HttpService = game:GetService("HttpService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 -- CONFIG
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1474915809158500576/ANdID60Td4faZm-stOVkUCuCpATzdEeASb5XksBe9ZDvCOVGaWv2FrpE-Wno7-AV3AAC"
 
--- 1. BUILD THE UI
+-- 2. BUILD THE UI
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "NovaAutoFarm_V3"
+screenGui.Name = "NovaAutoFarm_Fixed"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
@@ -16,7 +21,6 @@ local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 260, 0, 300)
 frame.Position = UDim2.new(0.5, -130, 0.3, 0)
 frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-frame.BorderSizePixel = 0
 frame.Active = true
 frame.Draggable = true 
 frame.Parent = screenGui
@@ -30,20 +34,11 @@ title.Font = Enum.Font.SourceSansBold
 title.TextSize = 18
 title.Parent = frame
 
-local startBtn = Instance.new("TextButton")
-startBtn.Text = "START ONCE"
-startBtn.Size = UDim2.new(0, 240, 0, 35)
-startBtn.Position = UDim2.new(0, 10, 0, 55)
-startBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
-startBtn.TextColor3 = Color3.new(1, 1, 1)
-startBtn.Font = Enum.Font.SourceSansBold
-startBtn.Parent = frame
-
 local loopBtn = Instance.new("TextButton")
-loopBtn.Text = "LOOP PATH: ON" -- Updated to ON
+loopBtn.Text = "LOOP PATH: ON"
 loopBtn.Size = UDim2.new(0, 240, 0, 35)
-loopBtn.Position = UDim2.new(0, 10, 0, 100)
-loopBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0) -- Updated to Green
+loopBtn.Position = UDim2.new(0, 10, 0, 55)
+loopBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
 loopBtn.TextColor3 = Color3.new(1, 1, 1)
 loopBtn.Font = Enum.Font.SourceSansBold
 loopBtn.Parent = frame
@@ -51,7 +46,7 @@ loopBtn.Parent = frame
 local stopBtn = Instance.new("TextButton")
 stopBtn.Text = "STOP"
 stopBtn.Size = UDim2.new(0, 240, 0, 35)
-stopBtn.Position = UDim2.new(0, 10, 0, 145)
+stopBtn.Position = UDim2.new(0, 10, 0, 100)
 stopBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 stopBtn.TextColor3 = Color3.new(1, 1, 1)
 stopBtn.Font = Enum.Font.SourceSansBold
@@ -60,7 +55,7 @@ stopBtn.Parent = frame
 local runtimeLabel = Instance.new("TextLabel")
 runtimeLabel.Text = "00:00:00"
 runtimeLabel.Size = UDim2.new(1, 0, 0, 50)
-runtimeLabel.Position = UDim2.new(0, 0, 0, 190)
+runtimeLabel.Position = UDim2.new(0, 0, 0, 150)
 runtimeLabel.BackgroundTransparency = 1
 runtimeLabel.TextColor3 = Color3.new(1, 1, 1)
 runtimeLabel.Font = Enum.Font.Code
@@ -70,118 +65,92 @@ runtimeLabel.Parent = frame
 local moneyLabel = Instance.new("TextLabel")
 moneyLabel.Text = "EARNED: $0"
 moneyLabel.Size = UDim2.new(1, 0, 0, 40)
-moneyLabel.Position = UDim2.new(0, 0, 0, 240)
+moneyLabel.Position = UDim2.new(0, 0, 0, 200)
 moneyLabel.BackgroundTransparency = 1
 moneyLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
 moneyLabel.Font = Enum.Font.SourceSansBold
 moneyLabel.TextSize = 22
 moneyLabel.Parent = frame
 
--- 2. COORDINATES
-local path = {
-    {name = "Row 1 Start", pos = Vector3.new(-336, -5, 101)},
-    {name = "Row 1 End", pos = Vector3.new(-298, -4, 101)},
-    {name = "Row 2 Start", pos = Vector3.new(-299, -4, 126)},
-    {name = "Row 2 End", pos = Vector3.new(-336, -5, 126)},
-    {name = "Stairs Step 1", pos = Vector3.new(-359, -6, 128)},
-    {name = "Stairs Step 2", pos = Vector3.new(-358, -6, 145)},
-    {name = "Stairs Step 3", pos = Vector3.new(-295, 13, 143)},
-    {name = "Final Step", pos = Vector3.new(-295, 13, 101)},
-    {name = "F2 Row 1 Start", pos = Vector3.new(-295, 13, 101)},
-    {name = "F2 Row 1 End", pos = Vector3.new(-332, 14, 102)},
-    {name = "F2 Row 2 Start", pos = Vector3.new(-331, 14, 126)},
-    {name = "F2 Row 2 End", pos = Vector3.new(-312, 13, 126)},
-    {name = "Ladder Step 1", pos = Vector3.new(-312, 13, 114)},
-    {name = "Ladder Step 2", pos = Vector3.new(-294, 31, 114)},
-    {name = "Top Row 1 Start", pos = Vector3.new(-295, 30, 126)},
-    {name = "Top Row 1 End", pos = Vector3.new(-337, 30, 125)},
-    {name = "Top Row 2 Start", pos = Vector3.new(-335, 30, 101)},
-    {name = "Top Row 2 End", pos = Vector3.new(-294, 30, 102)},
-    {name = "Returning 1", pos = Vector3.new(-304, 30, 106)},
-    {name = "Returning 2", pos = Vector3.new(-304, 13, 121)},
-    {name = "Returning 3", pos = Vector3.new(-302, 13, 144)},
-    {name = "Returning 4", pos = Vector3.new(-359, -6, 143)},
-    {name = "Back to Start", pos = Vector3.new(-336, -5, 101)}
-}
+-- 3. MONEY TRACKING (Pop-up Scanner)
+local totalEarned = 0
+local suffixes = {["K"] = 1e3, ["M"] = 1e6, ["B"] = 1e9, ["T"] = 1e12, ["Q"] = 1e15}
 
--- 3. MONEY TRACKING LOGIC
-local isWalking, isLooping = false, true -- Loop is ON by default
-local startTime, totalEarned = 0, 0
-local lastMoneyValue = 0
-
-local function findMoneyValue()
-    local ls = player:FindFirstChild("leaderstats")
-    if ls then
-        for _, v in pairs(ls:GetChildren()) do
-            if v:IsA("NumberValue") or v:IsA("IntValue") then return v end
-        end
-    end
-    local commonNames = {"Money", "Balance", "Cash", "Credits"}
-    for _, name in pairs(commonNames) do
-        local found = player:FindFirstChild(name) or (ls and ls:FindFirstChild(name))
-        if found then return found end
-    end
-    return nil
+local function formatMoney(val)
+    if val >= 1e15 then return string.format("%.2fQ", val/1e15)
+    elseif val >= 1e12 then return string.format("%.2fT", val/1e12)
+    elseif val >= 1e9 then return string.format("%.2fB", val/1e9)
+    elseif val >= 1e6 then return string.format("%.2fM", val/1e6)
+    elseif val >= 1e3 then return string.format("%.2fK", val/1e3)
+    else return tostring(math.floor(val)) end
 end
 
-local moneyObj = findMoneyValue()
-if moneyObj then
-    lastMoneyValue = moneyObj.Value
-    moneyObj.Changed:Connect(function(newVal)
-        if newVal > lastMoneyValue then
-            totalEarned = totalEarned + (newVal - lastMoneyValue)
-            moneyLabel.Text = "EARNED: $" .. tostring(totalEarned)
-        end
-        lastMoneyValue = newVal
-    end)
-end
-
--- 4. WEBHOOK & RUNTIME
-local function sendLog(msg)
-    pcall(function()
-        local data = {["content"] = "**[NOVA FARMER]** " .. msg}
-        HttpService:PostAsync(WEBHOOK_URL, HttpService:JSONEncode(data))
-    end)
-end
-
-task.spawn(function()
-    while task.wait(1) do
-        if isWalking then
-            local elapsed = tick() - startTime
-            runtimeLabel.Text = string.format("%02d:%02d:%02d", math.floor(elapsed/3600), math.floor((elapsed%3600)/60), math.floor(elapsed%60))
-        end
+playerGui.DescendantAdded:Connect(function(desc)
+    if desc:IsA("TextLabel") then
+        desc:GetPropertyChangedSignal("Text"):Connect(function()
+            if desc.Text:find("%+") then
+                local clean = desc.Text:gsub("[%+%$%,]", "")
+                local num, suff = clean:match("([%d%.]+)%s*([%a]*)")
+                if num then
+                    local v = tonumber(num)
+                    if suff and suffixes[suff:upper()] then v = v * suffixes[suff:upper()] end
+                    totalEarned = totalEarned + v
+                    moneyLabel.Text = "EARNED: $" .. formatMoney(totalEarned)
+                end
+            end
+        end)
     end
 end)
 
--- 5. MOVEMENT
+-- 4. PATH COORDINATES
+local path = {
+    {pos = Vector3.new(-336, -5, 101)}, {pos = Vector3.new(-298, -4, 101)},
+    {pos = Vector3.new(-299, -4, 126)}, {pos = Vector3.new(-336, -5, 126)},
+    {pos = Vector3.new(-359, -6, 128)}, {pos = Vector3.new(-358, -6, 145)},
+    {pos = Vector3.new(-295, 13, 143)}, {pos = Vector3.new(-295, 13, 101)},
+    {pos = Vector3.new(-332, 14, 102)}, {pos = Vector3.new(-331, 14, 126)},
+    {pos = Vector3.new(-312, 13, 126)}, {pos = Vector3.new(-312, 13, 114)},
+    {pos = Vector3.new(-294, 31, 114)}, {pos = Vector3.new(-295, 30, 126)},
+    {pos = Vector3.new(-337, 30, 125)}, {pos = Vector3.new(-335, 30, 101)},
+    {pos = Vector3.new(-294, 30, 102)}, {pos = Vector3.new(-304, 30, 106)},
+    {pos = Vector3.new(-304, 13, 121)}, {pos = Vector3.new(-302, 13, 144)},
+    {pos = Vector3.new(-359, -6, 143)}, {pos = Vector3.new(-336, -5, 101)}
+}
+
+-- 5. SLOW MODE AUTO-CLICKER
+local function toggleSlowMode()
+    -- Finding the button from your image (usually in BottomRight area)
+    local screen = workspace.CurrentCamera.ViewportSize
+    local x, y = screen.X * 0.90, screen.Y * 0.85 -- Clicks bottom right
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
+    task.wait(0.1)
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+end
+
+-- 6. EXECUTION LOGIC
+local isWalking, isLooping = false, true
+local startTime = tick()
+
 local function executePath()
+    toggleSlowMode()
     isWalking = true
     startTime = tick()
     repeat
         for _, point in ipairs(path) do
             if not isWalking then break end
-            local char = player.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum:MoveTo(point.pos)
-                if math.abs(hum.RootPart.Position.Y - point.pos.Y) > 5 then hum.Jump = true end
-                hum.MoveToFinished:Wait()
-                task.wait(0.05)
-            end
+            local char = player.Character or player.CharacterAdded:Wait()
+            local hum = char:WaitForChild("Humanoid")
+            hum:MoveTo(point.pos)
+            if math.abs(hum.RootPart.Position.Y - point.pos.Y) > 5 then hum.Jump = true end
+            hum.MoveToFinished:Wait()
         end
-        if isLooping then
-            sendLog("Loop finished! Earned: $" .. totalEarned .. " | Time: " .. runtimeLabel.Text)
-        else
-            isWalking = false
-        end
+        pcall(function()
+            HttpService:PostAsync(WEBHOOK_URL, HttpService:JSONEncode({content = "**[AUTO-EXEC]** Loop Done. Total: " .. moneyLabel.Text}))
+        end)
     until not isLooping or not isWalking
 end
 
--- 6. BUTTON EVENTS
-startBtn.MouseButton1Click:Connect(function()
-    if not isWalking then isLooping = false; loopBtn.Text = "LOOP PATH: OFF"; loopBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70); task.spawn(executePath) end
-end)
-
+-- BUTTON EVENTS
 loopBtn.MouseButton1Click:Connect(function()
     isLooping = not isLooping
     loopBtn.Text = isLooping and "LOOP PATH: ON" or "LOOP PATH: OFF"
@@ -191,9 +160,18 @@ end)
 
 stopBtn.MouseButton1Click:Connect(function()
     isWalking, isLooping = false, false
-    loopBtn.Text = "LOOP PATH: OFF"
-    loopBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
 end)
 
--- 7. AUTO-START ON EXECUTION
+-- 7. TIMER THREAD
+task.spawn(function()
+    while task.wait(1) do
+        if isWalking then
+            local elapsed = tick() - startTime
+            runtimeLabel.Text = string.format("%02d:%02d:%02d", math.floor(elapsed/3600), math.floor((elapsed%3600)/60), math.floor(elapsed%60))
+        end
+    end
+end)
+
+-- INITIAL AUTO-START
+task.wait(5) -- Safe buffer before walking
 task.spawn(executePath)
